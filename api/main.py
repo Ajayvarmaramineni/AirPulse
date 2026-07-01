@@ -8,7 +8,6 @@ Run: uvicorn api.main:app --reload --port 8000
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -262,8 +261,10 @@ def city_stations(city_name: str):
         if isinstance(ts, _dt.datetime):
             delta = _dt.datetime.utcnow().replace(tzinfo=None) - ts.replace(tzinfo=None)
             mins = int(delta.total_seconds() / 60)
-            if mins < 2:  return "Just now"
-            if mins < 60: return f"{mins} min ago"
+            if mins < 2:
+                return "Just now"
+            if mins < 60:
+                return f"{mins} min ago"
             return f"{mins // 60}h ago"
         return str(ts)
 

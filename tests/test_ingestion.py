@@ -14,7 +14,8 @@ from unittest.mock import patch, MagicMock
 class TestWAQIClient:
 
     def setup_method(self):
-        import os, sys
+        import os
+        import sys
         os.environ["WAQI_TOKEN"] = "test_token_12345"
         sys.path.insert(0, ".")
         from ingestion.waqi_client import WAQIClient
