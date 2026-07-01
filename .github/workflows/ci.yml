@@ -31,6 +31,7 @@ jobs:
 
       - name: Run pytest
         env:
+          WAQI_TOKEN: test_dummy_token
           OPENAQ_API_KEY: test_dummy_key
           POSTGRES_HOST: localhost
           POSTGRES_DB: airquality
@@ -68,27 +69,9 @@ jobs:
       - name: Install dbt
         run: pip install dbt-core dbt-postgres
 
-      - name: Initialize raw schema + table
+      - name: Initialize raw schema + tables
         run: |
-          PGPASSWORD=airflow psql -h localhost -U airflow -d airquality -c "
-            CREATE SCHEMA IF NOT EXISTS raw;
-            CREATE TABLE IF NOT EXISTS raw.openaq_readings (
-              id BIGSERIAL PRIMARY KEY,
-              location_id TEXT NOT NULL,
-              location_name TEXT,
-              city TEXT,
-              country TEXT NOT NULL,
-              parameter TEXT NOT NULL,
-              value NUMERIC(10,4) NOT NULL,
-              unit TEXT,
-              date_utc TIMESTAMPTZ NOT NULL,
-              date_local TEXT,
-              latitude NUMERIC(9,6),
-              longitude NUMERIC(9,6),
-              inserted_at TIMESTAMPTZ DEFAULT NOW(),
-              UNIQUE (location_id, parameter, date_utc)
-            );
-          "
+          PGPASSWORD=airflow psql -h localhost -U airflow -d airquality -f scripts/init_db.sql
 
       - name: dbt compile (validates all SQL)
         working-directory: dbt
@@ -100,7 +83,7 @@ jobs:
           POSTGRES_PASSWORD: airflow
         run: dbt compile --profiles-dir .
 
-      - name: dbt run (staging only, on empty table)
+      - name: dbt run staging (on empty tables)
         working-directory: dbt
         env:
           POSTGRES_HOST: localhost
@@ -121,4 +104,4 @@ jobs:
           python-version: "3.11"
       - run: pip install ruff
       - name: Ruff lint
-        run: ruff check ingestion/ superset/ tests/
+        run: ruff check ingestion/ api/ tests/
