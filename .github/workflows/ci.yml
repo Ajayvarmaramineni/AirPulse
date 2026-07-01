@@ -1,0 +1,124 @@
+name: CI — Air Quality Intelligence Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Python unit tests ────────────────────────────────────────────────────
+  python-tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest
+        env:
+          OPENAQ_API_KEY: test_dummy_key
+          POSTGRES_HOST: localhost
+          POSTGRES_DB: airquality
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        run: pytest tests/ -v --tb=short
+
+  # ── dbt model compilation check ──────────────────────────────────────────
+  dbt-compile:
+    name: dbt Compile Check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: airflow
+          POSTGRES_PASSWORD: airflow
+          POSTGRES_DB: airquality
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dbt
+        run: pip install dbt-core dbt-postgres
+
+      - name: Initialize raw schema + table
+        run: |
+          PGPASSWORD=airflow psql -h localhost -U airflow -d airquality -c "
+            CREATE SCHEMA IF NOT EXISTS raw;
+            CREATE TABLE IF NOT EXISTS raw.openaq_readings (
+              id BIGSERIAL PRIMARY KEY,
+              location_id TEXT NOT NULL,
+              location_name TEXT,
+              city TEXT,
+              country TEXT NOT NULL,
+              parameter TEXT NOT NULL,
+              value NUMERIC(10,4) NOT NULL,
+              unit TEXT,
+              date_utc TIMESTAMPTZ NOT NULL,
+              date_local TEXT,
+              latitude NUMERIC(9,6),
+              longitude NUMERIC(9,6),
+              inserted_at TIMESTAMPTZ DEFAULT NOW(),
+              UNIQUE (location_id, parameter, date_utc)
+            );
+          "
+
+      - name: dbt compile (validates all SQL)
+        working-directory: dbt
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: airquality
+          POSTGRES_USER: airflow
+          POSTGRES_PASSWORD: airflow
+        run: dbt compile --profiles-dir .
+
+      - name: dbt run (staging only, on empty table)
+        working-directory: dbt
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: airquality
+          POSTGRES_USER: airflow
+          POSTGRES_PASSWORD: airflow
+        run: dbt run --select staging --profiles-dir .
+
+  # ── Lint ─────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - name: Ruff lint
+        run: ruff check ingestion/ superset/ tests/

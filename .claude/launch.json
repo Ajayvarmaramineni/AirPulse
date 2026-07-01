@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "airpulse-api",
+      "runtimeExecutable": "/Users/ajayvarmaramineni/Desktop/Projects/Airpulse/.venv/bin/python3",
+      "runtimeArgs": ["-S", "-m", "uvicorn", "api.main:app", "--port", "8000", "--app-dir", "/Users/ajayvarmaramineni/Desktop/Projects/Airpulse"],
+      "env": { "PYTHONPATH": "/Users/ajayvarmaramineni/Desktop/Projects/Airpulse/.venv/lib/python3.11/site-packages" },
+      "port": 8000
+    }
+  ]
+}

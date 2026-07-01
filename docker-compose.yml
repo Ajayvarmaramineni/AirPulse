@@ -1,0 +1,151 @@
+version: "3.8"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Urban Air Quality Intelligence Platform
+# Services: PostgreSQL · Airflow (webserver + scheduler) · Apache Superset
+#
+# Usage:
+#   cp .env.example .env          # fill in your OpenAQ API key
+#   docker-compose up -d          # start all services
+#   docker-compose logs -f        # watch logs
+#   open http://localhost:8080    # Airflow UI
+#   open http://localhost:8088    # Superset UI
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.8.0-python3.11
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    OPENAQ_API_KEY: ${OPENAQ_API_KEY}
+    OPENAQ_CITIES: ${OPENAQ_CITIES}
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    DBT_PROFILES_DIR: /opt/airflow/dbt
+    SUPERSET_URL: http://superset:8088
+    SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER}
+    SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./ingestion:/opt/airflow/ingestion
+    - ./dbt:/opt/airflow/dbt
+    - ./superset:/opt/airflow/superset
+    - airflow_logs:/opt/airflow/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
+  user: "${AIRFLOW_UID:-50000}:0"
+
+services:
+
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+
+  # ── Airflow Init ──────────────────────────────────────────────────────────
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        pip install --no-cache-dir -r /opt/airflow/dbt/../requirements.txt
+        airflow db migrate
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com
+    environment:
+      <<: *airflow-common-env
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./ingestion:/opt/airflow/ingestion
+      - ./dbt:/opt/airflow/dbt
+      - ./superset:/opt/airflow/superset
+      - ./requirements.txt:/opt/airflow/requirements.txt
+
+  # ── Airflow Scheduler ─────────────────────────────────────────────────────
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $(hostname)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ── Airflow Webserver ─────────────────────────────────────────────────────
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ── Apache Superset ───────────────────────────────────────────────────────
+  superset:
+    image: apache/superset:3.1.0
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/superset
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - superset_data:/app/superset_home
+    command: >
+      bash -c "
+        superset db upgrade &&
+        superset fab create-admin
+          --username ${SUPERSET_ADMIN_USER}
+          --firstname Admin
+          --lastname User
+          --email ${SUPERSET_ADMIN_EMAIL}
+          --password ${SUPERSET_ADMIN_PASSWORD} &&
+        superset init &&
+        gunicorn --bind 0.0.0.0:8088 --workers 2 'superset.app:create_app()'
+      "
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  postgres_data:
+  airflow_logs:
+  superset_data:

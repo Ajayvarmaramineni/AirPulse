@@ -1,0 +1,27 @@
+# Ingestion
+requests==2.31.0
+pandas==2.1.4
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.23
+python-dotenv==1.0.0
+tenacity==8.2.3
+loguru==0.7.2
+
+# dbt
+dbt-core==1.7.4
+dbt-postgres==1.7.4
+
+# Dashboard (Streamlit — legacy)
+streamlit==1.31.0
+plotly==5.18.0
+
+# API backend
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+
+# Testing
+pytest==7.4.4
+pytest-mock==3.12.0
+
+# Apache Airflow — installed separately with constraints by setup.sh
+# apache-airflow==2.8.0

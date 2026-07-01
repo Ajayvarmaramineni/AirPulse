@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: stg_waqi__readings
+    description: "Cleaned WAQI station snapshots. One row per station per pipeline run."
+    columns:
+      - name: reading_id
+        tests: [unique, not_null]
+      - name: city
+        tests: [not_null]
+      - name: station_id
+        tests: [not_null]
+      - name: aqi
+        tests: [not_null]
+      - name: reading_timestamp
+        tests: [not_null]

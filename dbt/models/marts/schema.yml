@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: fct_aqi_health_risk
+    description: "City-level daily AQI health risk scores with EPA categories."
+    columns:
+      - name: city
+        tests: [not_null]
+      - name: reading_date
+        tests: [not_null]
+      - name: avg_aqi
+        tests: [not_null]
+      - name: aqi_category
+        tests:
+          - accepted_values:
+              values:
+                - Good
+                - Moderate
+                - Unhealthy for Sensitive Groups
+                - Unhealthy
+                - Very Unhealthy
+                - Hazardous
+      - name: risk_score
+        description: "Normalized 0-100 score for heatmap color encoding"
+
+  - name: fct_anomaly_events
+    description: "City-days where AQI exceeded 2.5 standard deviations above 30-day baseline."
+    columns:
+      - name: city
+        tests: [not_null]
+      - name: reading_date
+        tests: [not_null]
+      - name: z_score
+        tests: [not_null]
+      - name: severity
+        tests:
+          - accepted_values:
+              values: [Critical, High, Medium, Low]

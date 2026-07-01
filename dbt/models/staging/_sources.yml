@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: "Raw station snapshots — WAQI and OpenAQ, one row per station per pipeline run"
+    tables:
+      - name: waqi_readings
+        description: "AQI + pollutant readings from the World Air Quality Index API"
+        columns:
+          - name: id
+            tests: [unique, not_null]
+          - name: city
+            tests: [not_null]
+          - name: station_id
+            tests: [not_null]
+          - name: aqi
+            description: "US AQI value (0-500). Computed by WAQI."
+          - name: reading_time
+            tests: [not_null]
+      - name: openaq_readings
+        description: "Pollutant concentrations from OpenAQ v3 (170+ countries). AQI computed from PM2.5 via EPA formula."
+        columns:
+          - name: id
+            tests: [unique, not_null]
+          - name: city
+            tests: [not_null]
+          - name: location_id
+            tests: [not_null]
+          - name: reading_time
+            tests: [not_null]

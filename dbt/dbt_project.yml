@@ -1,0 +1,27 @@
+name: 'air_quality_intelligence'
+version: '1.0.0'
+config-version: 2
+
+profile: 'air_quality_intelligence'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  air_quality_intelligence:
+    staging:
+      +schema: staging
+      +materialized: view        # staging models are cheap views
+    intermediate:
+      +schema: intermediate
+      +materialized: table       # intermediate built once per run
+    marts:
+      +schema: marts
+      +materialized: table       # mart tables queried by Superset
+      +post-hook:
+        - "ANALYZE {{ this }}"   # keep query planner stats fresh
