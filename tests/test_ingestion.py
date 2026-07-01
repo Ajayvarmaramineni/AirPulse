@@ -137,11 +137,16 @@ class TestAQICategories:
 
     @staticmethod
     def categorize_pm25(value: float) -> str:
-        if value <= 12.0:   return "Good"
-        if value <= 35.4:   return "Moderate"
-        if value <= 55.4:   return "Unhealthy for Sensitive Groups"
-        if value <= 150.4:  return "Unhealthy"
-        if value <= 250.4:  return "Very Unhealthy"
+        if value <= 12.0:
+            return "Good"
+        if value <= 35.4:
+            return "Moderate"
+        if value <= 55.4:
+            return "Unhealthy for Sensitive Groups"
+        if value <= 150.4:
+            return "Unhealthy"
+        if value <= 250.4:
+            return "Very Unhealthy"
         return "Hazardous"
 
     @pytest.mark.parametrize("value,expected", [

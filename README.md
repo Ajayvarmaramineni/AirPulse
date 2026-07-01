@@ -21,37 +21,27 @@
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    A["🌐 WAQI API\n83 cities · live AQI + 5-day forecasts"]
-
-    subgraph Ingestion ["Ingestion Layer"]
-        B["waqi_client.py\nBounds-based station discovery\n+ city-name fallback"]
-        C["db_loader.py\nIdempotent upsert to PostgreSQL"]
-    end
-
-    subgraph Storage ["PostgreSQL — raw schema"]
-        D[("raw.waqi_readings\nOne row per station per run")]
-        E[("raw.waqi_forecasts\nDaily PM2.5 / PM10 / O₃")]
-    end
-
-    subgraph Transform ["dbt Transformations"]
-        direction TB
-        F["staging/\nstg_waqi__readings\nClean · typecast · filter sentinels"]
-        G["intermediate/\nint_city_daily_averages\nDaily aggregates + 7-day rolling avg"]
-        H["marts/\nfct_aqi_health_risk\nAQI categorisation + risk scoring"]
-        I["marts/\nfct_anomaly_events\nZ-score spike detection"]
-        F --> G --> H & I
-    end
-
-    subgraph Serving ["Serving Layer"]
-        J["FastAPI\nREST endpoints + static file serving"]
-        K["Browser Dashboard\nLive map · Trend chart · Rankings · Anomaly alerts"]
-    end
-
-    A --> B --> C --> D & E
-    D --> F
-    H & I --> J --> K
+```
+WAQI API (83 cities)
+       │
+       ▼
+waqi_client.py + db_loader.py          ← retry/backoff, idempotent upsert
+       │
+       ▼
+PostgreSQL raw schema
+  raw.waqi_readings · raw.waqi_forecasts
+       │
+       ▼
+dbt transformations
+  staging → intermediate → marts
+  stg_waqi__readings
+  int_city_daily_averages              ← daily agg + 7-day rolling avg
+  fct_aqi_health_risk                  ← AQI scoring
+  fct_anomaly_events                   ← Z-score spike detection
+       │
+       ▼
+FastAPI  →  Browser Dashboard
+           live map · trend · rankings · anomaly alerts
 ```
 
 ---
@@ -223,17 +213,6 @@ A fixed AQI threshold (e.g. > 150 = anomaly) doesn't account for baseline differ
 | `GET` | `/api/leaderboard` | Top 10 most polluted + 5 cleanest cities |
 | `GET` | `/api/anomaly/{city}` | Most recent anomaly event for a city (last 3 days) |
 | `GET` | `/api/health` | Liveness check |
-
----
-
-## What I'd Add Next
-
-- **Airflow-native scheduling** — move the pipeline run to a proper Airflow DAG on a 6-hour cron instead of manual `python run_pipeline.py`
-- **Great Expectations** — column-level profiling and data drift detection as a quality gate between ingestion and dbt
-- **Slack / email alerts** — Airflow callback when a city hits "Unhealthy" AQI or a Critical anomaly is detected
-- **Snowflake as warehouse** — swap the dbt profile; the entire model lineage ports over without changes
-- **Terraform** — provision the stack on AWS (RDS + EC2 + ALB) so it runs 24/7 without a local machine
-- **ML forecast** — next-day AQI prediction using 7-day rolling features, scikit-learn, logged to MLflow
 
 ---
 
