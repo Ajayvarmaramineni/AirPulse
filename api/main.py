@@ -9,13 +9,13 @@ Run: uvicorn api.main:app --reload --port 8000
 import os
 from pathlib import Path
 
+import psycopg2
+import psycopg2.extras
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import psycopg2
-import psycopg2.extras
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv(Path(__file__).parents[1] / ".env")
 
@@ -39,7 +39,7 @@ def get_conn():
     pwd = os.environ.get("POSTGRES_PASSWORD", "")
     return psycopg2.connect(
         host=os.environ.get("POSTGRES_HOST", "localhost"),
-        port=int(os.environ.get("POSTGRES_PORT", 5432)),
+        port=int(os.environ.get("POSTGRES_PORT", "5432")),
         dbname=os.environ.get("POSTGRES_DB", "airquality"),
         user=os.environ.get("POSTGRES_USER", ""),
         password=pwd or None,
@@ -259,7 +259,7 @@ def city_stations(city_name: str):
         if not ts:
             return "Unknown"
         if isinstance(ts, _dt.datetime):
-            delta = _dt.datetime.utcnow().replace(tzinfo=None) - ts.replace(tzinfo=None)
+            delta = _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None) - ts.replace(tzinfo=None)
             mins = int(delta.total_seconds() / 60)
             if mins < 2:
                 return "Just now"
@@ -321,5 +321,5 @@ def health():
     try:
         query("SELECT 1")
         return {"status": "ok"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(500, str(e))

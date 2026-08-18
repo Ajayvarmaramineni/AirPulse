@@ -135,7 +135,9 @@ class WAQIClient:
         wait=wait_exponential(multiplier=2, min=2, max=20),
         reraise=True,
     )
-    def _get(self, endpoint: str, params: dict = {}) -> dict:
+    def _get(self, endpoint: str, params: dict | None = None) -> dict:
+        if params is None:
+            params = {}
         url = f"{BASE_URL}/{endpoint}"
         params = {"token": self.token, **params}
         resp = self.session.get(url, params=params, timeout=15)
@@ -157,7 +159,7 @@ class WAQIClient:
             data = self._get("map/bounds/", {
                 "latlng": f"{lat_min},{lon_min},{lat_max},{lon_max}",
             })
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"{city} bounds query failed: {e}")
             return []
 
@@ -178,7 +180,7 @@ class WAQIClient:
         """
         try:
             data = self._get(f"feed/@{station_uid}/")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Station {station_uid} feed failed: {e}")
             return None
 
@@ -224,7 +226,7 @@ class WAQIClient:
         """
         try:
             data = self._get(f"feed/{city}/")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"{city} name-feed failed: {e}")
             return None
         if data.get("status") != "ok":
@@ -268,7 +270,7 @@ class WAQIClient:
         """
         try:
             data = self._get(f"feed/{city}/")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"{city} forecast fetch failed: {e}")
             return []
 

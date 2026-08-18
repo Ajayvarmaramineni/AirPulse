@@ -6,7 +6,6 @@ Idempotent — ON CONFLICT DO NOTHING means re-runs are safe.
 """
 
 import os
-from typing import List
 
 import psycopg2
 import psycopg2.extras
@@ -17,7 +16,7 @@ def get_connection():
     pwd = os.environ.get("POSTGRES_PASSWORD", "")
     return psycopg2.connect(
         host=os.environ.get("POSTGRES_HOST", "localhost"),
-        port=int(os.environ.get("POSTGRES_PORT", 5432)),
+        port=int(os.environ.get("POSTGRES_PORT", "5432")),
         dbname=os.environ.get("POSTGRES_DB", "airquality"),
         user=os.environ.get("POSTGRES_USER", ""),
         password=pwd if pwd else None,
@@ -38,7 +37,7 @@ INSERT_SQL = """
 """
 
 
-def load_readings(rows: List[dict]) -> int:
+def load_readings(rows: list[dict]) -> int:
     """Bulk-insert WAQI rows. Returns count of rows attempted."""
     if not rows:
         logger.warning("load_readings called with empty list — nothing to insert.")
@@ -51,9 +50,8 @@ def load_readings(rows: List[dict]) -> int:
 
     conn = get_connection()
     try:
-        with conn:
-            with conn.cursor() as cur:
-                psycopg2.extras.execute_batch(cur, INSERT_SQL, valid, page_size=200)
+        with conn, conn.cursor() as cur:
+            psycopg2.extras.execute_batch(cur, INSERT_SQL, valid, page_size=200)
         logger.info(f"Loaded {len(valid)} rows (conflicts silently skipped)")
         return len(valid)
     except Exception as e:
@@ -83,9 +81,8 @@ def load_forecasts(rows: list[dict]) -> int:
     valid = [r for r in rows if r.get("city") and r.get("forecast_day") and r.get("pollutant")]
     conn = get_connection()
     try:
-        with conn:
-            with conn.cursor() as cur:
-                psycopg2.extras.execute_batch(cur, FORECAST_SQL, valid, page_size=100)
+        with conn, conn.cursor() as cur:
+            psycopg2.extras.execute_batch(cur, FORECAST_SQL, valid, page_size=100)
         logger.info(f"Upserted {len(valid)} forecast rows")
         return len(valid)
     except Exception as e:
@@ -118,9 +115,8 @@ def load_openaq_readings(rows: list[dict]) -> int:
         return 0
     conn = get_connection()
     try:
-        with conn:
-            with conn.cursor() as cur:
-                psycopg2.extras.execute_batch(cur, OPENAQ_INSERT_SQL, valid, page_size=200)
+        with conn, conn.cursor() as cur:
+            psycopg2.extras.execute_batch(cur, OPENAQ_INSERT_SQL, valid, page_size=200)
         logger.info(f"OpenAQ: loaded {len(valid)} rows")
         return len(valid)
     except Exception as e:
