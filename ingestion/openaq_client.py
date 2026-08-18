@@ -15,7 +15,6 @@ Key differences from WAQI:
 import os
 import time
 from datetime import datetime, timezone
-from typing import Optional
 
 import requests
 from loguru import logger
@@ -87,7 +86,7 @@ _EPA_BREAKPOINTS = [
     (350.5, 500.4,  401,  500),
 ]
 
-def pm25_to_aqi(pm25: float) -> Optional[int]:
+def pm25_to_aqi(pm25: float) -> int | None:
     """Convert PM2.5 concentration (µg/m³) → US EPA AQI (0–500)."""
     if pm25 is None or pm25 < 0:
         return None
@@ -115,7 +114,9 @@ class OpenAQClient:
         wait=wait_exponential(multiplier=2, min=2, max=30),
         reraise=True,
     )
-    def _get(self, endpoint: str, params: dict = {}) -> dict:
+    def _get(self, endpoint: str, params: dict | None = None) -> dict:
+        if params is None:
+            params = {}
         url = f"{BASE_URL}/{endpoint}"
         resp = self.session.get(url, params=params, timeout=20)
         if resp.status_code == 429:
@@ -138,7 +139,7 @@ class OpenAQClient:
                 "limit":      limit,
             })
             return data.get("results", [])
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"OpenAQ locations({city}, {country}): {e}")
             return []
 
@@ -149,7 +150,7 @@ class OpenAQClient:
         try:
             data = self._get(f"locations/{location_id}/latest")
             return data.get("results", [])
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"OpenAQ latest(loc={location_id}): {e}")
             return []
 

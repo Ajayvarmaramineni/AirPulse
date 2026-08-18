@@ -3,9 +3,9 @@ Unit tests for the AirPulse ingestion layer.
 Run: pytest tests/ -v
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WAQI Client tests
