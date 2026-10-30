@@ -21,6 +21,14 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 BASE_URL = "https://api.waqi.info"
 
+
+def parse_aqi(value) -> int | None:
+    """Return the AQI as an int, or None for WAQI's "-" sentinel (offline station) and other non-numbers."""
+    try:
+        return int(float(value))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
 # Cities + bounding boxes [lat_min, lon_min, lat_max, lon_max]
 # Wide enough to capture multiple monitoring stations per city
 CITY_BOUNDS = {
@@ -200,7 +208,7 @@ class WAQIClient:
             "city":               city,
             "station_name":       feed.get("city", {}).get("name", ""),
             "station_id":         uid,
-            "aqi":                feed.get("aqi"),
+            "aqi":                parse_aqi(feed.get("aqi")),
             "dominant_pollutant": feed.get("dominentpol", ""),
             "pm25":               poll("pm25"),
             "pm10":               poll("pm10"),
@@ -248,14 +256,20 @@ class WAQIClient:
                 time.sleep(0.5)
                 if not feed:
                     continue
-                rows.append(self._feed_to_row(city, uid, feed, now_utc))
+                row = self._feed_to_row(city, uid, feed, now_utc)
+                if row["aqi"] is not None:
+                    rows.append(row)
         else:
             # Bounds returned nothing — try WAQI's city name endpoint as fallback
             feed = self.fetch_city_name_feed(city)
             if feed:
                 uid = feed.get("idx") or 0
-                rows.append(self._feed_to_row(city, uid, feed, now_utc))
-                logger.info(f"{city}: 0 stations in bounds, got 1 via /feed/{city}/ fallback")
+                row = self._feed_to_row(city, uid, feed, now_utc)
+                if row["aqi"] is not None:
+                    rows.append(row)
+                    logger.info(f"{city}: 0 stations in bounds, got 1 via /feed/{city}/ fallback")
+                else:
+                    logger.warning(f"{city}: fallback feed reports no AQI (offline sentinel), skipping")
 
         logger.info(f"{city}: {len(rows)} station readings fetched")
         return rows
