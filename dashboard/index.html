@@ -987,7 +987,9 @@
         renderRankTable('bestTable', leaderboard.best, 'bestCount');
 
         allCities.sort((a, b) => (b.avg_aqi || 0) - (a.avg_aqi || 0));
-        const defaultCity = allCities[0]?.city || "Delhi";
+        // Prefer a city with a reading from the last 3 days; some stations report stale timestamps.
+        const isFresh = c => (Date.now() - new Date(c.reading_date).getTime()) / 864e5 <= 3;
+        const defaultCity = (allCities.find(isFresh) || allCities[0])?.city || "Delhi";
         document.getElementById("cityInput").value = defaultCity;
         await fetchAndRender(defaultCity);
       } catch (e) {

@@ -28,6 +28,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Leaderboard ignores cities whose latest reading is older than this (stale stations).
+LEADERBOARD_MAX_AGE_DAYS = 3
+
 # Serve the dashboard folder as static files
 DASHBOARD_DIR = Path(__file__).parents[1] / "dashboard"
 app.mount("/static", StaticFiles(directory=str(DASHBOARD_DIR)), name="static")
@@ -294,15 +297,22 @@ def city_stations(city_name: str):
 
 @app.get("/api/leaderboard")
 def leaderboard():
-    """Top 10 most polluted + 5 cleanest cities, latest reading per city."""
+    """
+    Top 10 most polluted + 5 cleanest cities, latest reading per city.
+
+    Only readings from the last LEADERBOARD_MAX_AGE_DAYS days are ranked: some WAQI
+    stations keep reporting an old timestamp for months, and ranking those would
+    present stale data as current.
+    """
     rows = query("""
         SELECT DISTINCT ON (city)
             city, avg_aqi, aqi_category, dominant_pollutant, reading_date,
             day_over_day_change
         FROM public_marts.fct_aqi_health_risk
         WHERE avg_aqi IS NOT NULL
+          AND reading_date >= CURRENT_DATE - %s
         ORDER BY city, reading_date DESC
-    """)
+    """, (LEADERBOARD_MAX_AGE_DAYS,))
     rows.sort(key=lambda r: float(r["avg_aqi"] or 0), reverse=True)
     return {
         "worst": rows[:10],
