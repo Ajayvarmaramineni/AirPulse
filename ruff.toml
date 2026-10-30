@@ -1,0 +1,7 @@
+# Explicit lint config so CI is deterministic across ruff releases
+# (newer ruff versions widen the default rule set).
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = ["E", "F"]
