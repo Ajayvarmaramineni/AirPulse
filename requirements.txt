@@ -11,10 +11,6 @@ loguru==0.7.2
 dbt-core==1.7.4
 dbt-postgres==1.7.4
 
-# Dashboard (Streamlit — legacy)
-streamlit==1.31.0
-plotly==5.18.0
-
 # API backend
 fastapi==0.110.0
 uvicorn[standard]==0.27.1

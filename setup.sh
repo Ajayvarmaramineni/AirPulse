@@ -64,23 +64,9 @@ source "$VENV_DIR/bin/activate"
 
 pip install --upgrade pip --quiet
 
-# ── 4. pip packages (dbt, Streamlit, ingestion deps) ─────────────────────────
-log "Installing dbt, Streamlit, and ingestion dependencies..."
-pip install \
-  dbt-core==1.7.4 \
-  dbt-postgres==1.7.4 \
-  requests==2.31.0 \
-  pandas==2.1.4 \
-  psycopg2-binary==2.9.9 \
-  SQLAlchemy==2.0.23 \
-  python-dotenv==1.0.0 \
-  tenacity==8.2.3 \
-  loguru==0.7.2 \
-  streamlit==1.31.0 \
-  plotly==5.18.0 \
-  pytest==7.4.4 \
-  pytest-mock==3.12.0 \
-  --quiet
+# ── 4. pip packages (ingestion, dbt, FastAPI, tests) ────────────────────────
+log "Installing dependencies from requirements.txt..."
+pip install -r "$PROJECT_DIR/requirements.txt" --quiet
 
 # ── 5. Apache Airflow ─────────────────────────────────────────────────────────
 log "Installing Apache Airflow 2.8.0 (this takes 2-3 minutes)..."
@@ -112,7 +98,7 @@ airflow users create \
 # ── 7. .env file ──────────────────────────────────────────────────────────────
 if [ ! -f "$PROJECT_DIR/.env" ]; then
   cp "$PROJECT_DIR/.env.example" "$PROJECT_DIR/.env"
-  warn ".env created from .env.example — open it and add your OpenAQ API key!"
+  warn ".env created from .env.example — open it and add your WAQI_TOKEN (https://aqicn.org/data-platform/token/)!"
 else
   log ".env already exists ✓"
 fi
@@ -123,17 +109,14 @@ echo -e "${GREEN}=====================================================${NC}"
 echo -e "${GREEN}  Setup complete! Here's how to run the project:${NC}"
 echo -e "${GREEN}=====================================================${NC}"
 echo ""
-echo "  1. Add your OpenAQ API key to .env"
+echo "  1. Add your WAQI_TOKEN to .env (free: https://aqicn.org/data-platform/token/)"
 echo ""
 echo "  2. Activate the venv:"
 echo "     source .venv/bin/activate"
 echo ""
-echo "  3. Run the pipeline once (fetches data + runs dbt):"
+echo "  3. Run the pipeline once (ingest -> validate -> dbt run -> dbt test):"
 echo "     python run_pipeline.py"
 echo ""
-echo "  4. Start the dashboard:"
-echo "     streamlit run dashboard/app.py"
-echo ""
-echo "  5. (Optional) Start Airflow for scheduled runs:"
-echo "     bash start_airflow.sh"
+echo "  4. Start the API and open the dashboard:"
+echo "     uvicorn api.main:app --reload --port 8000   # http://localhost:8000"
 echo ""
