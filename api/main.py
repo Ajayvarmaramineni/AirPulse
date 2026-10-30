@@ -93,17 +93,26 @@ def cities():
 
 @app.get("/api/city/{city_name}")
 def city_detail(city_name: str):
-    """30-day history for one city."""
+    """
+    The 30 most recent daily rows for one city, oldest first.
+
+    Uses "last 30 days that have data" rather than a calendar window: the pipeline
+    runs on demand and some stations report stale timestamps, so a calendar window
+    would return an empty history for any city that has not been refreshed recently.
+    """
     rows = query("""
-        SELECT
-            city, reading_date, avg_aqi, max_aqi, min_aqi,
-            aqi_category, risk_score, dominant_pollutant,
-            avg_pm25, avg_pm10, avg_no2, avg_o3,
-            rolling_7d_avg_aqi, day_over_day_change,
-            city_lat AS latitude, city_lon AS longitude
-        FROM public_marts.fct_aqi_health_risk
-        WHERE LOWER(city) = LOWER(%s)
-          AND reading_date >= CURRENT_DATE - INTERVAL '30 days'
+        SELECT * FROM (
+            SELECT
+                city, reading_date, avg_aqi, max_aqi, min_aqi,
+                aqi_category, risk_score, dominant_pollutant,
+                avg_pm25, avg_pm10, avg_no2, avg_o3,
+                rolling_7d_avg_aqi, day_over_day_change,
+                city_lat AS latitude, city_lon AS longitude
+            FROM public_marts.fct_aqi_health_risk
+            WHERE LOWER(city) = LOWER(%s)
+            ORDER BY reading_date DESC
+            LIMIT 30
+        ) recent
         ORDER BY reading_date ASC
     """, (city_name,))
     if not rows:
