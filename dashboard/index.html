@@ -764,7 +764,9 @@
     function renderTrend(history) {
       const labels  = history.map(r => {
         const d = new Date(r.reading_date);
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        // reading_date is a calendar date (parsed as UTC midnight); format in UTC so the
+        // label does not shift a day back for viewers west of UTC.
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
       });
       const aqiData     = history.map(r => r.avg_aqi     ? Math.round(r.avg_aqi)           : null);
       const rollingData = history.map(r => r.rolling_7d_avg_aqi ? Math.round(r.rolling_7d_avg_aqi) : null);
