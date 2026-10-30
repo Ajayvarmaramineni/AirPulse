@@ -230,7 +230,7 @@ def city_feed(city_name: str):
     lon = float(r["city_lon"]) if r["city_lon"] else 0
 
     return {
-        "aqi":         int(r["avg_aqi"]) if r["avg_aqi"] else 0,
+        "aqi":         round(float(r["avg_aqi"])) if r["avg_aqi"] else 0,
         "dominentpol": (r["dominant_pollutant"] or "pm25").lower(),
         "city": {
             "name": r["city"],

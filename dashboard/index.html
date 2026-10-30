@@ -877,7 +877,7 @@
       document.getElementById('anomalyTitle').textContent =
         `${isCrit ? 'Critical' : 'Elevated'} air quality spike in ${data.city}`;
       document.getElementById('anomalyDetail').textContent =
-        `AQI ${Math.round(data.anomaly_aqi)} — ${pct}% above 7-day baseline of ${base}. Dominant pollutant: ${pol}.`;
+        `AQI ${Math.round(data.anomaly_aqi)} — ${pct}% above its baseline of ${base}. Dominant pollutant: ${pol}.`;
       document.getElementById('anomalySev').textContent   = (data.severity || 'Elevated').toUpperCase();
       document.getElementById('anomalySev').className     = 'anomaly-sev' + (isCrit ? ' critical' : '');
       banner.className = 'anomaly-banner show' + (isCrit ? ' critical' : '');
