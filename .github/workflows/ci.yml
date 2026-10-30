@@ -1,107 +1,113 @@
-name: CI — Air Quality Intelligence Pipeline
+name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
-jobs:
+permissions:
+  contents: read
 
-  # ── Python unit tests ────────────────────────────────────────────────────
-  python-tests:
-    name: Python Tests
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: airquality
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  PGPASSWORD: postgres
+
+jobs:
+  lint:
+    name: Lint (ruff)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
+      # Pinned: ruff widens its default rules between releases. Rules live in ruff.toml.
+      - run: pip install ruff==0.17.3
+      - run: ruff check ingestion/ api/ tests/
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run pytest
-        env:
-          WAQI_TOKEN: test_dummy_token
-          OPENAQ_API_KEY: test_dummy_key
-          POSTGRES_HOST: localhost
-          POSTGRES_DB: airquality
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-        run: pytest tests/ -v --tb=short
-
-  # ── dbt model compilation check ──────────────────────────────────────────
-  dbt-compile:
-    name: dbt Compile Check
+  pytest:
+    name: pytest (unit + Postgres integration)
     runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: airflow
-          POSTGRES_PASSWORD: airflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: airquality
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
-
+          --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
-
-      - name: Install dbt
-        run: pip install dbt-core dbt-postgres
-
-      - name: Initialize raw schema + tables
-        run: |
-          PGPASSWORD=airflow psql -h localhost -U airflow -d airquality -f scripts/init_db.sql
-
-      - name: dbt compile (validates all SQL)
-        working-directory: dbt
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Create raw schema and tables
+        run: psql -h localhost -U postgres -d airquality -v ON_ERROR_STOP=1 -f scripts/init_db.sql
+      - name: Run pytest
         env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: "5432"
-          POSTGRES_DB: airquality
-          POSTGRES_USER: airflow
-          POSTGRES_PASSWORD: airflow
-        run: dbt compile --profiles-dir .
+          WAQI_TOKEN: dummy-token-for-tests
+          AIRPULSE_TEST_DB: "1" # enables tests/test_db_integration.py against the service container
+        run: pytest -v
 
-      - name: dbt run staging (on empty tables)
-        working-directory: dbt
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: "5432"
-          POSTGRES_DB: airquality
-          POSTGRES_USER: airflow
-          POSTGRES_PASSWORD: airflow
-        run: dbt run --select staging --profiles-dir .
-
-  # ── Lint ─────────────────────────────────────────────────────────────────
-  lint:
-    name: Lint
+  dbt:
+    name: dbt build + test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: airquality
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
-      - run: pip install ruff
-      - name: Ruff lint
-        run: ruff check ingestion/ api/ tests/
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Create raw schema and tables
+        run: psql -h localhost -U postgres -d airquality -v ON_ERROR_STOP=1 -f scripts/init_db.sql
+      - name: Seed synthetic fixture (see ci/seed_fixture.sql)
+        run: psql -h localhost -U postgres -d airquality -v ON_ERROR_STOP=1 -f ci/seed_fixture.sql
+      - name: dbt build (models + schema tests + custom test)
+        working-directory: dbt
+        run: dbt build --profiles-dir .
+      - name: Assert model outputs against the fixture
+        run: psql -h localhost -U postgres -d airquality -v ON_ERROR_STOP=1 -f ci/assert_pipeline.sql
+      - name: Generate dbt docs catalog
+        working-directory: dbt
+        run: dbt docs generate --profiles-dir .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dbt-docs
+          path: |
+            dbt/target/index.html
+            dbt/target/manifest.json
+            dbt/target/catalog.json
+          retention-days: 14
