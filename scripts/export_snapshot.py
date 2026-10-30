@@ -87,17 +87,22 @@ def build_snapshot(city: str | None) -> dict:
                 best = _rows(cur, """
                     SELECT city, COUNT(*) AS days, MAX(station_count) AS stations
                     FROM public_marts.fct_aqi_health_risk
-                    WHERE reading_date >= CURRENT_DATE - INTERVAL '30 days'
-                    GROUP BY city ORDER BY days DESC, stations DESC LIMIT 1
-                """)
+                    GROUP BY city
+                    HAVING MAX(reading_date) >= CURRENT_DATE - %s
+                    ORDER BY days DESC, stations DESC LIMIT 1
+                """, (MAX_AGE_DAYS,))
                 city = best[0]["city"] if best else (fresh[0]["city"] if fresh else None)
 
             featured = None
             if city:
                 trend = _rows(cur, """
-                    SELECT reading_date, avg_aqi, rolling_7d_avg_aqi, aqi_category
-                    FROM public_marts.fct_aqi_health_risk
-                    WHERE LOWER(city) = LOWER(%s) AND reading_date >= CURRENT_DATE - INTERVAL '30 days'
+                    SELECT * FROM (
+                        SELECT reading_date, avg_aqi, rolling_7d_avg_aqi, aqi_category
+                        FROM public_marts.fct_aqi_health_risk
+                        WHERE LOWER(city) = LOWER(%s)
+                        ORDER BY reading_date DESC
+                        LIMIT 30
+                    ) recent
                     ORDER BY reading_date
                 """, (city,))
                 featured = {
@@ -127,7 +132,7 @@ def build_snapshot(city: str | None) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    parser.add_argument("--city", help="city to feature (default: most history in the last 30 days)")
+    parser.add_argument("--city", help="city to feature (default: the fresh city with the most daily history)")
     parser.add_argument("--out", type=Path, default=OUT_PATH)
     args = parser.parse_args()
 
