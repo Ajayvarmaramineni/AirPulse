@@ -33,7 +33,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       # Pinned: ruff widens its default rules between releases. Rules live in ruff.toml.
       - run: pip install ruff==0.17.3
-      - run: ruff check ingestion/ api/ tests/
+      - run: ruff check ingestion/ api/ tests/ scripts/
 
   pytest:
     name: pytest (unit + Postgres integration)
