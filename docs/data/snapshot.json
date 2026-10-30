@@ -1,0 +1,395 @@
+{
+  "generated_at": "2026-10-30T13:57:42+00:00",
+  "note": "Real output of the AirPulse pipeline (WAQI -> PostgreSQL -> dbt marts), exported by scripts/export_snapshot.py. Rankings only include cities whose latest reading is at most 3 days old.",
+  "totals": {
+    "raw_station_readings": 3440,
+    "stations": 708,
+    "cities_ingested": 79,
+    "forecast_rows": 3842,
+    "city_days": 218,
+    "anomaly_events_all_time": 27,
+    "anomaly_events_last_30d": 21,
+    "latest_load_date": "2026-10-30",
+    "rows_loaded_latest_load": 584
+  },
+  "cities_in_rankings": 55,
+  "most_polluted": [
+    {
+      "city": "Shanghai",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 130.8,
+      "aqi_category": "Unhealthy for Sensitive Groups",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Delhi",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 124.8,
+      "aqi_category": "Unhealthy for Sensitive Groups",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Guangzhou",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 114.5,
+      "aqi_category": "Unhealthy for Sensitive Groups",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Jakarta",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 106.0,
+      "aqi_category": "Unhealthy for Sensitive Groups",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Seoul",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 91.3,
+      "aqi_category": "Moderate",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Hong Kong",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 85.7,
+      "aqi_category": "Moderate",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Singapore",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 73.6,
+      "aqi_category": "Moderate",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Kuala Lumpur",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 73.4,
+      "aqi_category": "Moderate",
+      "dominant_pollutant": ""
+    },
+    {
+      "city": "Warsaw",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 66.3,
+      "aqi_category": "Moderate",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Bogota",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 65.1,
+      "aqi_category": "Moderate",
+      "dominant_pollutant": "pm25"
+    }
+  ],
+  "cleanest": [
+    {
+      "city": "Perth",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 5.0,
+      "aqi_category": "Good",
+      "dominant_pollutant": "pm10"
+    },
+    {
+      "city": "San Francisco",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 10.0,
+      "aqi_category": "Good",
+      "dominant_pollutant": "o3"
+    },
+    {
+      "city": "Vancouver",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 11.4,
+      "aqi_category": "Good",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Stockholm",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 13.2,
+      "aqi_category": "Good",
+      "dominant_pollutant": "pm10"
+    },
+    {
+      "city": "Toronto",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 15.0,
+      "aqi_category": "Good",
+      "dominant_pollutant": "pm25"
+    }
+  ],
+  "anomalies_last_30d": [
+    {
+      "city": "Brussels",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 57.7,
+      "baseline_mean_aqi": 18.0,
+      "baseline_stddev": 0.42,
+      "z_score": 93.57,
+      "pct_above_baseline": 220.6,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Moscow",
+      "reading_date": "2026-10-24",
+      "anomaly_aqi": 50.0,
+      "baseline_mean_aqi": 40.2,
+      "baseline_stddev": 0.21,
+      "z_score": 46.43,
+      "pct_above_baseline": 24.5,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Bogota",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 65.1,
+      "baseline_mean_aqi": 20.6,
+      "baseline_stddev": 1.34,
+      "z_score": 33.16,
+      "pct_above_baseline": 216.8,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Auckland",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 37.7,
+      "baseline_mean_aqi": 11.4,
+      "baseline_stddev": 1.84,
+      "z_score": 14.31,
+      "pct_above_baseline": 230.7,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Hong Kong",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 85.7,
+      "baseline_mean_aqi": 29.1,
+      "baseline_stddev": 4.17,
+      "z_score": 13.58,
+      "pct_above_baseline": 195.0,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Amsterdam",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 41.4,
+      "baseline_mean_aqi": 19.5,
+      "baseline_stddev": 1.63,
+      "z_score": 13.5,
+      "pct_above_baseline": 112.9,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Guangzhou",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 114.5,
+      "baseline_mean_aqi": 46.1,
+      "baseline_stddev": 5.87,
+      "z_score": 11.66,
+      "pct_above_baseline": 148.6,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Shanghai",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 130.8,
+      "baseline_mean_aqi": 34.7,
+      "baseline_stddev": 8.41,
+      "z_score": 11.43,
+      "pct_above_baseline": 277.5,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Philadelphia",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 50.0,
+      "baseline_mean_aqi": 34.0,
+      "baseline_stddev": 1.41,
+      "z_score": 11.31,
+      "pct_above_baseline": 47.1,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "New York",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 57.8,
+      "baseline_mean_aqi": 37.3,
+      "baseline_stddev": 2.05,
+      "z_score": 9.98,
+      "pct_above_baseline": 54.9,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Taipei",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 45.6,
+      "baseline_mean_aqi": 42.2,
+      "baseline_stddev": 0.42,
+      "z_score": 8.01,
+      "pct_above_baseline": 8.1,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "London",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 49.1,
+      "baseline_mean_aqi": 19.4,
+      "baseline_stddev": 3.72,
+      "z_score": 8.0,
+      "pct_above_baseline": 153.4,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Denver",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 64.8,
+      "baseline_mean_aqi": 36.4,
+      "baseline_stddev": 3.75,
+      "z_score": 7.59,
+      "pct_above_baseline": 78.3,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Bangkok",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 53.1,
+      "baseline_mean_aqi": 42.9,
+      "baseline_stddev": 1.56,
+      "z_score": 6.56,
+      "pct_above_baseline": 23.8,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Berlin",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 49.7,
+      "baseline_mean_aqi": 31.3,
+      "baseline_stddev": 3.18,
+      "z_score": 5.8,
+      "pct_above_baseline": 59.0,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Melbourne",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 29.6,
+      "baseline_mean_aqi": 10.8,
+      "baseline_stddev": 3.31,
+      "z_score": 5.69,
+      "pct_above_baseline": 174.9,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Kuala Lumpur",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 73.4,
+      "baseline_mean_aqi": 67.2,
+      "baseline_stddev": 1.2,
+      "z_score": 5.2,
+      "pct_above_baseline": 9.3,
+      "severity": "Critical",
+      "dominant_pollutant": ""
+    },
+    {
+      "city": "Paris",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 40.3,
+      "baseline_mean_aqi": 22.8,
+      "baseline_stddev": 3.43,
+      "z_score": 5.11,
+      "pct_above_baseline": 76.9,
+      "severity": "Critical",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Seoul",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 91.3,
+      "baseline_mean_aqi": 70.8,
+      "baseline_stddev": 5.52,
+      "z_score": 3.71,
+      "pct_above_baseline": 28.9,
+      "severity": "High",
+      "dominant_pollutant": "pm25"
+    },
+    {
+      "city": "Warsaw",
+      "reading_date": "2026-10-30",
+      "anomaly_aqi": 66.3,
+      "baseline_mean_aqi": 38.8,
+      "baseline_stddev": 8.84,
+      "z_score": 3.12,
+      "pct_above_baseline": 71.1,
+      "severity": "High",
+      "dominant_pollutant": "pm25"
+    }
+  ],
+  "featured_city": {
+    "city": "Delhi",
+    "latest": {
+      "city": "Delhi",
+      "reading_date": "2026-10-30",
+      "avg_aqi": 124.8,
+      "aqi_category": "Unhealthy for Sensitive Groups",
+      "dominant_pollutant": "pm25",
+      "avg_pm25": 124.83,
+      "avg_pm10": 57.83,
+      "avg_no2": 16.71,
+      "avg_o3": 3.91,
+      "station_count": 24,
+      "risk_score": 41.6
+    },
+    "trend_30d": [
+      {
+        "reading_date": "2026-06-28",
+        "avg_aqi": 118.4,
+        "rolling_7d_avg_aqi": 118.4,
+        "aqi_category": "Unhealthy for Sensitive Groups"
+      },
+      {
+        "reading_date": "2026-06-29",
+        "avg_aqi": 98.9,
+        "rolling_7d_avg_aqi": 108.7,
+        "aqi_category": "Moderate"
+      },
+      {
+        "reading_date": "2026-06-30",
+        "avg_aqi": 125.1,
+        "rolling_7d_avg_aqi": 114.1,
+        "aqi_category": "Unhealthy for Sensitive Groups"
+      },
+      {
+        "reading_date": "2026-07-01",
+        "avg_aqi": 90.2,
+        "rolling_7d_avg_aqi": 108.2,
+        "aqi_category": "Moderate"
+      },
+      {
+        "reading_date": "2026-10-30",
+        "avg_aqi": 124.8,
+        "rolling_7d_avg_aqi": 111.5,
+        "aqi_category": "Unhealthy for Sensitive Groups"
+      }
+    ]
+  }
+}

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AirPulse — Live Air Quality Data Pipeline</title>
+  <meta name="description" content="End-to-end data engineering project: WAQI API → PostgreSQL → dbt (staging, intermediate, marts) → FastAPI → live dashboard, with Z-score anomaly detection and CI that builds and tests the dbt project against Postgres.">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:title" content="AirPulse — Live Air Quality Data Pipeline">
+  <meta property="og:description" content="Ingestion, dbt transformations, anomaly detection and a live dashboard. By Aj Ramineni.">
+  <meta property="og:image" content="https://ajayvarmaramineni.github.io/AirPulse/images/dashboard-map.png">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f1115'/%3E%3Ctext x='16' y='22' font-family='monospace' font-size='15' font-weight='700' fill='%23e8a33d' text-anchor='middle'%3EAP%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6f5f1; --surface: #ffffff; --surface-2: #f0eee8;
+      --text: #1b1d21; --muted: #5d6470; --border: #dedbd2;
+      --accent: #a8670a; --accent-bg: #fbeed7; --link: #8a5206; --on-accent: #ffffff;
+      --good: #1f8a5b; --warn: #b4590f; --bad: #c0283f;
+      --shadow: 0 1px 2px rgba(20, 20, 20, .06), 0 8px 24px rgba(20, 20, 20, .05);
+      --font-body: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --font-display: "Space Grotesk", Inter, system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0b0c0f; --surface: #12141a; --surface-2: #181b22;
+        --text: #eceff3; --muted: #9aa3b0; --border: #262a33;
+        --accent: #e8a33d; --accent-bg: #2a2012; --link: #f0b659; --on-accent: #1c1203;
+        --good: #34d399; --warn: #fb923c; --bad: #f87185;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0b0c0f; --surface: #12141a; --surface-2: #181b22;
+      --text: #eceff3; --muted: #9aa3b0; --border: #262a33;
+      --accent: #e8a33d; --accent-bg: #2a2012; --link: #f0b659; --on-accent: #1c1203;
+      --good: #34d399; --warn: #fb923c; --bad: #f87185;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 400 16px/1.6 var(--font-body); -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--link); text-underline-offset: 3px; }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+    img { max-width: 100%; height: auto; display: block; }
+    .wrap { width: min(1080px, calc(100% - 32px)); margin: 0 auto; }
+    .skip { position: absolute; left: -999px; top: 8px; background: var(--surface); padding: 8px 12px; border-radius: 6px; z-index: 10; }
+    .skip:focus { left: 8px; }
+    .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+    /* top bar */
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; font: 700 17px var(--font-display); letter-spacing: .04em; text-decoration: none; color: var(--text); }
+    .mark { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--border); color: var(--accent); font: 700 13px var(--font-mono); }
+    nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    nav a.nl { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 8px; font-size: 14px; }
+    nav a.nl:hover { color: var(--text); background: var(--surface-2); }
+    .theme { border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+
+    /* hero */
+    .hero { padding: 36px 0 28px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 600 12px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); background: var(--accent-bg); padding: 6px 12px; border-radius: 999px; }
+    h1 { font: 700 clamp(34px, 6vw, 58px)/1.05 var(--font-display); letter-spacing: -.02em; margin: 18px 0 14px; max-width: 18ch; }
+    .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 62ch; margin: 0 0 24px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid var(--border); background: var(--surface); color: var(--text); min-height: 44px; }
+    .btn:hover { border-color: var(--muted); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .badge { height: 22px; }
+
+    section { padding: 34px 0; }
+    h2 { font: 700 clamp(24px, 3.4vw, 32px)/1.15 var(--font-display); letter-spacing: -.01em; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
+
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+    .grid { display: grid; gap: 14px; }
+    .grid > * { min-width: 0; } /* let wide tables scroll inside their card instead of widening the page */
+    .stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .stat { padding: 16px 18px; }
+    .stat .n { font: 700 30px/1.1 var(--font-mono); letter-spacing: -.02em; }
+    .stat .l { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .fineprint { color: var(--muted); font-size: 13px; margin-top: 12px; }
+
+    /* architecture flow */
+    .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; align-items: stretch; }
+    .stage { padding: 14px; position: relative; }
+    .stage h3 { font: 600 14px var(--font-display); margin: 0 0 6px; }
+    .stage p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+    .stage .tag { font: 600 11px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; display: block; }
+    .stage:not(:last-child)::after { content: "→"; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 18px; z-index: 1; }
+    .layers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+    .layer { padding: 10px 12px; font-size: 13px; }
+    .layer b { display: block; font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-bottom: 2px; }
+    @media (max-width: 860px) {
+      .flow { grid-template-columns: 1fr; }
+      .stage:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -17px; transform: translateX(-50%); }
+      .layers { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* tables */
+    .twocol { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 760px) { .twocol { grid-template-columns: 1fr; } }
+    .tbl { padding: 16px 0 8px; }
+    .tbl h3 { font: 600 15px var(--font-display); margin: 0 18px 8px; }
+    .tbl table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .tbl th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 6px 18px; border-bottom: 1px solid var(--border); }
+    .tbl td { padding: 8px 18px; border-bottom: 1px solid var(--border); }
+    .tbl tr:last-child td { border-bottom: 0; }
+    .tbl .r { text-align: right; }
+    .tbl td.mono { white-space: nowrap; }
+    .chip { display: inline-block; min-width: 42px; text-align: center; padding: 2px 8px; border-radius: 6px; font: 700 12.5px var(--font-mono); color: #0b0c0f; }
+    .empty { padding: 14px 18px; color: var(--muted); font-size: 14px; }
+    .scroll { overflow-x: auto; }
+
+    .chartbox { padding: 18px; }
+    .chartbox svg { width: 100%; height: 160px; display: block; }
+    .axis { stroke: var(--border); } .line { stroke: var(--accent); fill: none; stroke-width: 2; } .roll { stroke: var(--muted); fill: none; stroke-width: 1.5; stroke-dasharray: 4 4; }
+    .dot { fill: var(--accent); }
+
+    /* screenshots */
+    .shots { grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); }
+    figure { margin: 0; overflow: hidden; }
+    figure img { border-bottom: 1px solid var(--border); width: 100%; }
+    figcaption { padding: 12px 16px; font-size: 14px; color: var(--muted); }
+    figcaption b { color: var(--text); display: block; margin-bottom: 2px; }
+
+    /* decisions */
+    .decisions { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .decision { padding: 18px 20px; }
+    .decision h3 { font: 600 16px var(--font-display); margin: 0 0 6px; }
+    .decision p { margin: 0 0 8px; font-size: 14.5px; color: var(--muted); }
+    .decision code, .stack code { font: 500 12.5px var(--font-mono); background: var(--surface-2); padding: 1px 6px; border-radius: 5px; color: var(--text); }
+    .decision .proof { font-size: 13px; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 8px; }
+
+    .stack { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+    .stack .card { padding: 14px 16px; font-size: 14px; }
+    .stack .card b { display: block; font: 600 12px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: 4px; }
+
+    footer { padding: 34px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); margin-top: 20px; }
+    footer .links { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="wrap">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="AirPulse home"><span class="mark">AP</span>AIRPULSE</a>
+      <nav aria-label="Sections">
+        <a class="nl" href="#results">Results</a>
+        <a class="nl" href="#architecture">Architecture</a>
+        <a class="nl" href="#screens">Screenshots</a>
+        <a class="nl" href="#decisions">Decisions</a>
+        <button class="theme" id="theme" type="button" aria-label="Toggle light/dark theme" title="Toggle theme">◐</button>
+      </nav>
+    </header>
+  </div>
+
+  <main id="main">
+    <div class="wrap">
+      <div class="hero" id="top">
+        <span class="eyebrow">Data engineering project</span>
+        <h1>Live air-quality data, from raw API to tested marts.</h1>
+        <p class="lede">AirPulse ingests per-station readings from the WAQI API, models them with dbt into city-level daily marts, flags statistical pollution spikes with a Z-score window function, and serves everything through FastAPI and a live dashboard. CI builds and tests the whole dbt project against a real Postgres.</p>
+        <div class="cta">
+          <a class="btn primary" href="https://github.com/Ajayvarmaramineni/AirPulse">View the repo</a>
+          <a class="btn" href="https://ajayramineni.com">Portfolio · ajayramineni.com</a>
+          <a href="https://github.com/Ajayvarmaramineni/AirPulse/actions/workflows/ci.yml"><img class="badge" alt="CI status" src="https://github.com/Ajayvarmaramineni/AirPulse/actions/workflows/ci.yml/badge.svg"></a>
+        </div>
+      </div>
+
+      <section id="problem" aria-labelledby="problem-h">
+        <h2 id="problem-h">The problem</h2>
+        <p class="sub">Air-quality monitoring data is published station by station: thousands of independent sensors, with offline stations reporting <code class="mono">"-"</code>, readings that stop updating for months, and no notion of a normal day for a given city. AirPulse turns that raw feed into a clean, city-level dataset with health categories and spike alerts, and keeps every step re-runnable and tested.</p>
+      </section>
+
+      <section id="results" aria-labelledby="results-h">
+        <h2 id="results-h">Results from a real run</h2>
+        <p class="sub">These numbers are not hardcoded. They are rendered from <a href="data/snapshot.json">data/snapshot.json</a>, exported from my local PostgreSQL by <code class="mono">scripts/export_snapshot.py</code>.</p>
+        <div class="grid stats" id="stats" aria-live="polite">
+          <div class="card stat"><div class="n">…</div><div class="l">loading snapshot</div></div>
+        </div>
+        <p class="fineprint" id="snapnote"></p>
+
+        <div class="grid twocol" style="margin-top:18px">
+          <div class="card tbl"><h3>Most polluted cities (latest reading)</h3><div class="scroll" id="worst"></div></div>
+          <div class="card tbl"><h3>Cleanest cities (latest reading)</h3><div class="scroll" id="best"></div></div>
+        </div>
+        <div class="grid twocol" style="margin-top:14px">
+          <div class="card tbl"><h3>Anomalies flagged (last 30 days, top 8 by Z-score)</h3><div class="scroll" id="anoms"></div><p class="fineprint" style="margin:8px 18px 10px">Baselines use only the daily rows collected so far (a handful per city, with gaps between pipeline runs), so Z-scores here are large and noisy. They show the mechanism working, not confirmed pollution events.</p></div>
+          <div class="card chartbox"><h3 style="margin:0 0 4px;font:600 15px var(--font-display)" id="trendtitle">AQI history</h3><div id="trend"></div></div>
+        </div>
+      </section>
+
+      <section id="architecture" aria-labelledby="arch-h">
+        <h2 id="arch-h">Architecture</h2>
+        <p class="sub">One direction of flow, with a clear job for each layer.</p>
+        <div class="flow">
+          <div class="card stage"><span class="tag">Source</span><h3>WAQI API</h3><p>Per-station AQI, pollutants and 5-day forecasts for cities with a defined bounding box.</p></div>
+          <div class="card stage"><span class="tag">Ingest</span><h3>Python client + loader</h3><p><code>waqi_client.py</code> with retry/backoff, city-feed fallback; <code>db_loader.py</code> with idempotent writes.</p></div>
+          <div class="card stage"><span class="tag">Store</span><h3>PostgreSQL <code>raw</code></h3><p><code>raw.waqi_readings</code> and <code>raw.waqi_forecasts</code>, unique keys enforce idempotency.</p></div>
+          <div class="card stage"><span class="tag">Transform</span><h3>dbt</h3><p>Staging views, an intermediate daily table, and two mart tables. 25 tests.</p></div>
+          <div class="card stage"><span class="tag">Serve</span><h3>FastAPI + dashboard</h3><p>JSON endpoints over the marts, plus a single-file HTML dashboard (Leaflet, Chart.js).</p></div>
+        </div>
+        <div class="layers" aria-label="dbt layers">
+          <div class="card layer"><b>staging</b>clean, type-cast, drop out-of-range AQI, union sources</div>
+          <div class="card layer"><b>intermediate</b>city-day averages + 7-day rolling average</div>
+          <div class="card layer"><b>mart · fct_aqi_health_risk</b>EPA category, risk score, day-over-day change</div>
+          <div class="card layer"><b>mart · fct_anomaly_events</b>Z-score spikes vs. a per-city 30-day baseline</div>
+        </div>
+        <p class="fineprint">An OpenAQ client and staging model also exist as an optional second source; <code class="mono">run_pipeline.py</code> ingests WAQI only.</p>
+      </section>
+
+      <section id="screens" aria-labelledby="screens-h">
+        <h2 id="screens-h">Screenshots</h2>
+        <p class="sub">The live dashboard needs the FastAPI backend and a database, so these are captures from a local run.</p>
+        <div class="grid shots">
+          <figure class="card"><img src="images/dashboard-map.png" alt="Dashboard showing city AQI gauge, station map with AQI markers and pollutant breakdown" loading="lazy"><figcaption><b>Live station map</b>Per-station AQI markers, gauge, weather context and pollutants.</figcaption></figure>
+          <figure class="card"><img src="images/dashboard-trend.png" alt="Dashboard 7-day AQI trend chart with rolling average and global ranking tables" loading="lazy"><figcaption><b>Trend and rankings</b>Daily average vs. 7-day rolling baseline, most polluted and cleanest cities.</figcaption></figure>
+          <figure class="card"><img src="images/dashboard-anomaly.png" alt="Dashboard anomaly alert banner for a city with an AQI spike above its baseline" loading="lazy"><figcaption><b>Anomaly alert</b>Spike flagged by the Z-score model, with severity and baseline.</figcaption></figure>
+          <figure class="card"><img src="images/dbt-lineage.png" alt="dbt docs lineage graph from raw sources through staging and intermediate models to the two marts" loading="lazy"><figcaption><b>dbt lineage</b>From <code>raw</code> sources to the two mart tables (generated by <code>dbt docs generate</code>).</figcaption></figure>
+        </div>
+      </section>
+
+      <section id="decisions" aria-labelledby="dec-h">
+        <h2 id="dec-h">Key engineering decisions</h2>
+        <p class="sub">Each one is something you can verify in the code or in CI.</p>
+        <div class="grid decisions">
+          <article class="card decision">
+            <h3>Idempotent writes</h3>
+            <p>Readings use <code>INSERT … ON CONFLICT (station_id, reading_time) DO NOTHING</code>, so a re-run never duplicates rows. Forecasts use <code>ON CONFLICT … DO UPDATE</code>, so a newer fetch replaces the old one.</p>
+            <div class="proof">Proof: <code>tests/test_db_integration.py</code> runs against a Postgres service container in CI.</div>
+          </article>
+          <article class="card decision">
+            <h3>Retry with backoff, then fall back</h3>
+            <p>Every API call goes through one method wrapped in <code>tenacity</code>: 3 attempts with exponential backoff (2–20 s) and a 15 s timeout. When a city's bounding box returns no active stations, the client falls back to WAQI's city feed instead of dropping the city.</p>
+            <div class="proof">Proof: <code>ingestion/waqi_client.py</code>.</div>
+          </article>
+          <article class="card decision">
+            <h3>Medallion-style layers</h3>
+            <p><code>raw</code> (as landed) → <code>staging</code> views (cleaning, out-of-range AQI dropped, sources unioned) → <code>intermediate</code> (city-day grain) → <code>marts</code>. A new source means one staging model and one line in <code>stg_all__readings</code>; nothing downstream changes.</p>
+            <div class="proof">Proof: lineage screenshot above; <code>dbt build</code> in CI.</div>
+          </article>
+          <article class="card decision">
+            <h3>Z-score anomaly detection</h3>
+            <p>A fixed AQI threshold ignores that a normal day in one city is a bad day in another. A window function computes each city's mean and standard deviation over up to 29 prior days; a day with Z ≥ 2.5 is flagged (Medium ≥ 2.5, High ≥ 3, Critical ≥ 4).</p>
+            <div class="proof">Proof: CI seeds a synthetic spike and asserts it comes out Critical while a quiet city stays unflagged.</div>
+          </article>
+        </div>
+      </section>
+
+      <section id="stack" aria-labelledby="stack-h">
+        <h2 id="stack-h">Tech stack</h2>
+        <div class="grid stack" style="margin-top:14px">
+          <div class="card"><b>Ingestion</b>Python 3.11, requests, tenacity, psycopg2</div>
+          <div class="card"><b>Storage</b>PostgreSQL 15</div>
+          <div class="card"><b>Transform</b>dbt-core 1.7 (dbt-postgres)</div>
+          <div class="card"><b>Serving</b>FastAPI, Leaflet, Chart.js</div>
+          <div class="card"><b>Quality</b>25 dbt tests, 32 pytest tests, ruff</div>
+          <div class="card"><b>CI</b>GitHub Actions with a Postgres service container</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="links">
+        <a href="https://github.com/Ajayvarmaramineni/AirPulse">GitHub repository</a>
+        <a href="https://ajayramineni.com">ajayramineni.com</a>
+        <a href="https://github.com/Ajayvarmaramineni/AirPulse/actions/workflows/ci.yml">CI runs</a>
+        <a href="https://aqicn.org">Data: World Air Quality Index</a>
+      </div>
+      Built by Aj Ramineni.
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var saved = null;
+      try { saved = localStorage.getItem("theme"); } catch (e) {}
+      if (saved) root.setAttribute("data-theme", saved);
+      document.getElementById("theme").addEventListener("click", function () {
+        var dark = root.getAttribute("data-theme") === "dark" ||
+          (!root.getAttribute("data-theme") && matchMedia("(prefers-color-scheme: dark)").matches);
+        var next = dark ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("theme", next); } catch (e) {}
+      });
+
+      var COLORS = [[50, "#34d399"], [100, "#eab308"], [150, "#fb923c"], [200, "#f43f5e"], [300, "#a855f7"], [Infinity, "#ef4b6f"]];
+      function aqiColor(v) { for (var i = 0; i < COLORS.length; i++) if (v <= COLORS[i][0]) return COLORS[i][1]; }
+      function el(tag, attrs, text) {
+        var n = document.createElement(tag);
+        for (var k in (attrs || {})) n.setAttribute(k, attrs[k]);
+        if (text !== undefined) n.textContent = text;
+        return n;
+      }
+      function fmt(n) { return Number(n).toLocaleString("en-US"); }
+
+      function statTile(value, label) {
+        var d = el("div", { "class": "card stat" });
+        d.appendChild(el("div", { "class": "n" }, value));
+        d.appendChild(el("div", { "class": "l" }, label));
+        return d;
+      }
+
+      function rankTable(host, rows) {
+        host.textContent = "";
+        if (!rows || !rows.length) { host.appendChild(el("div", { "class": "empty" }, "No cities with a reading in the snapshot window.")); return; }
+        var t = el("table");
+        var head = el("tr");
+        ["City", "AQI", "Dominant", "Date"].forEach(function (h, i) { var th = el("th", i === 1 ? { "class": "r" } : {}, h); head.appendChild(th); });
+        var thead = el("thead"); thead.appendChild(head); t.appendChild(thead);
+        var tb = el("tbody");
+        rows.forEach(function (r) {
+          var tr = el("tr");
+          tr.appendChild(el("td", {}, r.city));
+          var td = el("td", { "class": "r" });
+          var chip = el("span", { "class": "chip" }, String(Math.round(r.avg_aqi)));
+          chip.style.background = aqiColor(Number(r.avg_aqi));
+          td.appendChild(chip); tr.appendChild(td);
+          tr.appendChild(el("td", { "class": "mono" }, (r.dominant_pollutant || "—").toUpperCase()));
+          tr.appendChild(el("td", { "class": "mono" }, r.reading_date));
+          tb.appendChild(tr);
+        });
+        t.appendChild(tb); host.appendChild(t);
+      }
+
+      function anomalyTable(host, rows) {
+        host.textContent = "";
+        if (!rows || !rows.length) { host.appendChild(el("div", { "class": "empty" }, "No anomalies flagged in the last 30 days of this snapshot.")); return; }
+        var t = el("table");
+        var head = el("tr");
+        ["City", "Date", "AQI", "Baseline", "Z", "Severity"].forEach(function (h, i) { head.appendChild(el("th", i > 1 && i < 5 ? { "class": "r" } : {}, h)); });
+        var thead = el("thead"); thead.appendChild(head); t.appendChild(thead);
+        var tb = el("tbody");
+        rows.slice(0, 8).forEach(function (r) {
+          var tr = el("tr");
+          tr.appendChild(el("td", {}, r.city));
+          tr.appendChild(el("td", { "class": "mono" }, r.reading_date));
+          tr.appendChild(el("td", { "class": "mono r" }, String(Math.round(r.anomaly_aqi))));
+          tr.appendChild(el("td", { "class": "mono r" }, String(Math.round(r.baseline_mean_aqi))));
+          tr.appendChild(el("td", { "class": "mono r" }, Number(r.z_score).toFixed(1)));
+          tr.appendChild(el("td", {}, r.severity));
+          tb.appendChild(tr);
+        });
+        t.appendChild(tb); host.appendChild(t);
+      }
+
+      function trendChart(host, title, points) {
+        host.textContent = "";
+        if (!points || points.length < 2) {
+          host.appendChild(el("div", { "class": "empty" }, points && points.length === 1
+            ? "Only 1 day of history for this city in the snapshot window. The trend builds with each daily run."
+            : "No trend data in the snapshot window."));
+          return;
+        }
+        var W = 600, H = 160, P = 24;
+        var ys = points.map(function (p) { return Number(p.avg_aqi); });
+        var rs = points.map(function (p) { return p.rolling_7d_avg_aqi == null ? null : Number(p.rolling_7d_avg_aqi); });
+        var max = Math.max.apply(null, ys.concat(rs.filter(function (v) { return v != null; }))) * 1.1 || 10;
+        function X(i) { return P + (W - 2 * P) * i / (points.length - 1); }
+        function Y(v) { return H - P - (H - 2 * P) * v / max; }
+        var ns = "http://www.w3.org/2000/svg";
+        var svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+        svg.setAttribute("role", "img");
+        svg.setAttribute("aria-label", "Daily average AQI and 7-day rolling average for " + title);
+        function path(vals, cls) {
+          var d = ""; vals.forEach(function (v, i) { if (v == null) return; d += (d ? "L" : "M") + X(i).toFixed(1) + "," + Y(v).toFixed(1); });
+          var p = document.createElementNS(ns, "path"); p.setAttribute("d", d); p.setAttribute("class", cls); svg.appendChild(p);
+        }
+        var base = document.createElementNS(ns, "line");
+        base.setAttribute("x1", P); base.setAttribute("x2", W - P); base.setAttribute("y1", H - P); base.setAttribute("y2", H - P); base.setAttribute("class", "axis");
+        svg.appendChild(base);
+        path(rs, "roll"); path(ys, "line");
+        ys.forEach(function (v, i) { var c = document.createElementNS(ns, "circle"); c.setAttribute("cx", X(i)); c.setAttribute("cy", Y(v)); c.setAttribute("r", 3); c.setAttribute("class", "dot"); svg.appendChild(c); });
+        host.appendChild(svg);
+        host.appendChild(el("p", { "class": "fineprint" }, "Solid: daily average AQI. Dashed: 7-day rolling average. Points are days with data; a jump in dates means the pipeline did not run in between. " + points[0].reading_date + " to " + points[points.length - 1].reading_date + "."));
+      }
+
+      fetch("data/snapshot.json", { cache: "no-cache" }).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(function (s) {
+        var t = s.totals, stats = document.getElementById("stats");
+        stats.textContent = "";
+        stats.appendChild(statTile(fmt(t.cities_ingested), "cities with readings"));
+        stats.appendChild(statTile(fmt(t.stations), "monitoring stations"));
+        stats.appendChild(statTile(fmt(t.raw_station_readings), "raw station readings stored"));
+        stats.appendChild(statTile(fmt(t.rows_loaded_latest_load), "rows loaded in the latest run (" + t.latest_load_date + ")"));
+        stats.appendChild(statTile(fmt(t.city_days), "city-day rows in the mart"));
+        stats.appendChild(statTile(fmt(t.anomaly_events_last_30d), "anomaly events, last 30 days"));
+        document.getElementById("snapnote").textContent = "Snapshot generated " + s.generated_at.replace("T", " ").replace("+00:00", " UTC") + ". " + s.note;
+        rankTable(document.getElementById("worst"), s.most_polluted);
+        rankTable(document.getElementById("best"), s.cleanest);
+        anomalyTable(document.getElementById("anoms"), s.anomalies_last_30d);
+        var f = s.featured_city;
+        document.getElementById("trendtitle").textContent = f ? "AQI history · " + f.city : "AQI history";
+        trendChart(document.getElementById("trend"), f ? f.city : "", f ? f.trend_30d : []);
+      }).catch(function (e) {
+        document.getElementById("stats").textContent = "";
+        document.getElementById("snapnote").textContent = "Could not load data/snapshot.json (" + e.message + "). If you opened this file directly from disk, serve the docs/ folder over HTTP or view the hosted version.";
+      });
+    })();
+  </script>
+</body>
+</html>
