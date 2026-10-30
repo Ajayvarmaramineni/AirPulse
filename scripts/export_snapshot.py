@@ -60,7 +60,13 @@ def build_snapshot(city: str | None) -> dict:
                   (SELECT COUNT(DISTINCT city) FROM raw.waqi_readings)           AS cities_ingested,
                   (SELECT COUNT(*) FROM raw.waqi_forecasts)                      AS forecast_rows,
                   (SELECT COUNT(*) FROM public_marts.fct_aqi_health_risk)        AS city_days,
-                  (SELECT COUNT(*) FROM public_marts.fct_anomaly_events)         AS anomaly_events_all_time
+                  (SELECT COUNT(*) FROM public_marts.fct_anomaly_events)         AS anomaly_events_all_time,
+                  (SELECT COUNT(*) FROM public_marts.fct_anomaly_events
+                     WHERE reading_date >= CURRENT_DATE - INTERVAL '30 days')    AS anomaly_events_last_30d,
+                  (SELECT MAX(inserted_at)::date FROM raw.waqi_readings)         AS latest_load_date,
+                  (SELECT COUNT(*) FROM raw.waqi_readings
+                     WHERE inserted_at::date = (SELECT MAX(inserted_at)::date FROM raw.waqi_readings))
+                                                                                 AS rows_loaded_latest_load
             """)[0]
 
             latest = _rows(cur, """
@@ -80,7 +86,7 @@ def build_snapshot(city: str | None) -> dict:
                 FROM public_marts.fct_anomaly_events
                 WHERE reading_date >= CURRENT_DATE - INTERVAL '30 days'
                 ORDER BY z_score DESC
-                LIMIT 20
+                LIMIT 20  -- the list is a sample; the full count is totals.anomaly_events_last_30d
             """)
 
             if city is None:
